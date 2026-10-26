@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Debrief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#faf8f4;--card:#fffdf9;--ink:#1f1d1a;--mute:#8a857c;--line:#e8e3d9;--acc:#8c6a4f;--accbg:#f1ebe2}
+@media(prefers-color-scheme:dark){:root{--bg:#131210;--card:#1a1916;--ink:#ece8e0;--mute:#8f897e;--line:#2b2924;--acc:#c9a27e;--accbg:#24211c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding:28px 20px 80px}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:28px}
+.brand{font:500 26px 'Cormorant Garamond',Georgia,serif}.brand em{color:var(--acc)}
+nav{display:flex;gap:24px;border-bottom:1px solid var(--line);margin-bottom:36px;overflow-x:auto}
+.tab{background:none;border:0;padding:10px 0;margin-bottom:-1px;color:var(--mute);font:inherit;font-size:15px;cursor:pointer;border-bottom:1.5px solid transparent}
+.tab.on{color:var(--ink);border-color:var(--acc)}
+h1{font:500 38px/1.15 'Cormorant Garamond',Georgia,serif;margin:0 0 6px}
+h3{font:500 12px Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);margin:26px 0 6px}
+.sub{color:var(--mute);margin:0 0 22px}
+textarea{width:100%;min-height:150px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:inherit;font:inherit;resize:vertical;outline:none}
+textarea:focus{border-color:var(--acc)}textarea.tall{min-height:240px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0}
+.btn{background:var(--ink);color:var(--bg);border:0;border-radius:999px;padding:10px 22px;font:inherit;font-size:15px;cursor:pointer}
+.btn:disabled{opacity:.5}
+.link{background:none;border:0;padding:0;color:var(--acc);font:inherit;font-size:14px;cursor:pointer}
+.mute{color:var(--mute);font-size:14px}.note{margin:6px 0}
+.lede{font:italic 500 22px/1.4 'Cormorant Garamond',Georgia,serif;margin:22px 0 0}
+.tasks,.pts{list-style:none;padding:0;margin:0}
+.tasks li,.pts li{padding:9px 0;border-bottom:1px solid var(--line)}
+.tasks label{display:flex;gap:12px;cursor:pointer}
+.tasks input:checked+span{text-decoration:line-through;color:var(--mute)}
+input[type=checkbox]{accent-color:var(--acc);margin-top:6px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.chip{border:1px solid var(--line);background:none;color:var(--mute);border-radius:999px;padding:6px 14px;font:inherit;font-size:14px;cursor:pointer}
+.chip.on{background:var(--accbg);color:var(--ink);border-color:var(--acc)}
+.saved{border-bottom:1px solid var(--line);padding:14px 0}
+.item{display:flex;gap:12px;background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;text-align:left}
+.tag{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);min-width:84px;padding-top:4px}
+.past{display:flex;gap:14px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);padding:10px 0;color:inherit;font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.past b{font-weight:500;min-width:92px;color:var(--acc)}
+dialog{border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);padding:28px;width:min(380px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+dialog h2{font:500 30px 'Cormorant Garamond',Georgia,serif;margin:0 0 4px}
+dialog input{width:100%;padding:11px 14px;margin:6px 0;border:1px solid var(--line);border-radius:10px;background:transparent;color:inherit;font:inherit}
+footer{margin-top:60px;text-align:center}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="brand">Daily <em>Debrief</em></div><div id="who"></div></header>
+  <nav id="nav"></nav>
+  <main id="main"></main>
+  <footer class="mute">Guests: nothing you type is stored. Journal entries are private to your account and never sent to AI.</footer>
+</div>
+
+<dialog id="auth"><form id="af">
+  <h2 id="at">Welcome back</h2>
+  <p class="mute" id="an"></p>
+  <input id="em" type="email" placeholder="Email" autocomplete="email" required>
+  <input id="pw" type="password" placeholder="Password (8+ characters)" autocomplete="current-password" required>
+  <p class="mute" id="ae" style="color:#b4553d"></p>
+  <div class="row"><button type="button" class="link" id="sw"></button><button class="btn" id="as">Log in</button></div>
+  <button type="button" class="link" id="ac">Close</button>
+</form></dialog>
+
+<script>
+const $=s=>document.querySelector(s);
+const store={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{localStorage.setItem(k,v)}catch{}},del(k){try{localStorage.removeItem(k)}catch{}}};
+let token=store.get("dd_token"),user=null,view="prioritize",jday=ymd(new Date()),amode="login";
+const drafts={};
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function parse(s){const[y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)}
+function el(tag,attrs={},...kids){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==="class")e.className=v;else if(k.startsWith("on"))e[k]=v;else e.setAttribute(k,v)}kids.flat().forEach(c=>e.append(c&&c.nodeType?c:document.createTextNode(c==null?"":c)));return e}
+async function api(path,method="GET",body){
+  const r=await fetch("/api"+path,{method,headers:{"Content-Type":"application/json",...(token?{Authorization:"Bearer "+token}:{})},body:body?JSON.stringify(body):undefined});
+  let d={};try{d=await r.json()}catch{}
+  if(r.status===401&&token&&!path.startsWith("/auth/"))logout();
+  if(!r.ok)throw new Error(typeof d.detail==="string"?d.detail:"Something went wrong. Please try again.");
+  return d;
+}
+
+/* ---------- shell ---------- */
+const TABS=[["prioritize","Prioritize"],["summarize","Summarize"],["journal","Journal"],["saved","Saved"]];
+const VIEWS={prioritize:()=>toolView("prioritize"),summarize:()=>toolView("summarize"),journal:journalView,saved:savedView};
+function render(){
+  $("#nav").replaceChildren(...TABS.map(([k,l])=>el("button",{class:"tab"+(k===view?" on":""),onclick:()=>{view=k;render()}},l)));
+  $("#who").replaceChildren(...(user?[el("span",{class:"mute"},user.email+" \u00b7 "),el("button",{class:"link",onclick:logout},"Log out")]:[el("button",{class:"link",onclick:()=>openAuth()},"Log in")]));
+  $("#main").replaceChildren(VIEWS[view]());
+}
+
+/* ---------- auth ---------- */
+function setAuth(m){amode=m;$("#at").textContent=m==="login"?"Welcome back":"Create your account";$("#as").textContent=m==="login"?"Log in":"Sign up";$("#sw").textContent=m==="login"?"New here? Create an account":"Have an account? Log in"}
+function openAuth(note){setAuth("login");$("#an").textContent=note||"Save your work and keep a private journal.";$("#ae").textContent="";$("#auth").showModal()}
+$("#sw").onclick=()=>setAuth(amode==="login"?"register":"login");
+$("#ac").onclick=()=>$("#auth").close();
+$("#af").onsubmit=async e=>{e.preventDefault();$("#ae").textContent="";
+  try{const d=await api("/auth/"+amode,"POST",{email:$("#em").value,password:$("#pw").value});
+    token=d.token;user={email:d.email};store.set("dd_token",token);$("#pw").value="";$("#auth").close();render()}
+  catch(err){$("#ae").textContent=err.message}};
+function logout(){token=null;user=null;store.del("dd_token");render()}
+
+/* ---------- tools ---------- */
+const engineNote=r=>r.engine==="basic"?el("p",{class:"mute note"},"Quick mode: AI is unavailable right now, so a built-in method was used."):"";
+function showPriority(res){
+  const box=el("div");
+  if(res.summary)box.append(el("p",{class:"lede"},res.summary));
+  [["high","Do first"],["medium","Next"],["low","Later"]].forEach(([k,l])=>{
+    if(!(res[k]&&res[k].length))return;
+    box.append(el("h3",{},l),el("ul",{class:"tasks"},res[k].map(t=>el("li",{},el("label",{},el("input",{type:"checkbox"}),el("span",{},t))))));
+  });
+  box.append(engineNote(res));return box;
+}
+function showSummary(res){
+  const box=el("div",{},el("p",{class:"lede"},res.summary||""));
+  if(res.key_points&&res.key_points.length)box.append(el("h3",{},"Key points"),el("ul",{class:"pts"},res.key_points.map(t=>el("li",{},t))));
+  box.append(engineNote(res));return box;
+}
+const CFG={
+  prioritize:{h:"What\u2019s on your plate?",s:"Tell me everything, in any order.",ph:"Call the dentist, finish the report by Friday, groceries, maybe reorganise the shelf\u2026",btn:"Prioritize",show:showPriority},
+  summarize:{h:"Make it short.",s:"Paste an article, notes or a long message.",ph:"Paste your text here\u2026",btn:"Summarize",show:showSummary}};
+function saveRow(kind,text,res){
+  const b=el("button",{class:"link",onclick:async()=>{
+    if(!user)return openAuth("Log in to save this.");
+    try{await api("/saved","POST",{kind,title:text.trim().slice(0,60),input_text:text,result:res});b.textContent="Saved \u2713";b.disabled=true}catch(e){b.textContent=e.message}}},"Save this");
+  return el("div",{class:"row"},b);
+}
+function toolView(kind){
+  const c=CFG[kind],ta=el("textarea",{placeholder:c.ph});ta.value=drafts[kind]||"";
+  const cnt=el("span",{class:"mute"},ta.value.length+" characters"),msg=el("p",{class:"mute note"}),out=el("div");
+  ta.oninput=()=>{drafts[kind]=ta.value;cnt.textContent=ta.value.length+" characters"};
+  const btn=el("button",{class:"btn",onclick:async()=>{
+    btn.disabled=true;msg.textContent="Thinking\u2026";out.replaceChildren();
+    try{const res=await api("/"+kind,"POST",{text:ta.value});msg.textContent="";out.replaceChildren(c.show(res),saveRow(kind,ta.value,res))}
+    catch(e){msg.textContent=e.message}
+    btn.disabled=false}},c.btn);
+  return el("section",{},el("h1",{},c.h),el("p",{class:"sub"},c.s),ta,el("div",{class:"row"},cnt,btn),msg,out,
+    user?"":el("p",{class:"mute note"},"No account needed. Log in only if you want to save results."));
+}
+
+/* ---------- journal ---------- */
+const PROMPTS=["What gave you energy today?","What are you carrying that you could set down?","What went quietly well?","What did you learn about yourself?","Who made your day easier?","What do you want tomorrow to feel like?","What are you proud of, however small?"];
+function journalView(){
+  const wrap=el("section");
+  if(!user){wrap.append(el("h1",{},"A quiet place for today."),el("p",{class:"sub"},"Your journal is private and tied to your account."),el("button",{class:"btn",onclick:()=>openAuth("Log in to start your journal.")},"Log in to begin"));return wrap}
+  const day=jday,dt=parse(day),isToday=day===ymd(new Date());
+  const state=el("span",{class:"mute"}," "),list=el("div");
+  const content=el("textarea",{class:"tall",placeholder:PROMPTS[dt.getDate()%PROMPTS.length],disabled:""});
+  const grat=el("textarea",{placeholder:"Three small things you\u2019re grateful for\u2026",disabled:""});
+  let mood=0,timer;
+  const moods=["Heavy","Low","Okay","Good","Bright"].map((l,i)=>el("button",{class:"chip",onclick:()=>{mood=i+1;paint();queue()}},l));
+  const paint=()=>moods.forEach((b,i)=>b.classList.toggle("on",i+1===mood));
+  const queue=()=>{state.textContent="\u2026";clearTimeout(timer);timer=setTimeout(save,800)};
+  async function save(){try{await api("/journal/"+day,"PUT",{mood,content:content.value,gratitude:grat.value});state.textContent="Saved";loadList()}catch(e){state.textContent=e.message}}
+  content.oninput=queue;grat.oninput=queue;
+  const go=n=>{const d=parse(day);d.setDate(d.getDate()+n);jday=ymd(d);render()};
+  async function loadList(){try{const rows=await api("/journal");list.replaceChildren(...rows.map(r=>el("button",{class:"past",onclick:()=>{jday=r.day;render()}},el("b",{},parse(r.day).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})),el("span",{class:"mute"},r.preview||"\u2014"))))}catch{}}
+  wrap.append(
+    el("h1",{},dt.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"})),
+    el("div",{class:"row"},el("span",{},el("button",{class:"link",onclick:()=>go(-1)},"\u2190 Previous"),"  ",isToday?"":el("button",{class:"link",onclick:()=>go(1)},"Next \u2192"),"  ",isToday?"":el("button",{class:"link",onclick:()=>{jday=ymd(new Date());render()}},"Today")),state),
+    el("div",{class:"chips"},moods),content,el("h3",{},"Gratitude"),grat,el("h3",{},"Past entries"),list);
+  api("/journal/"+day).then(e=>{mood=e.mood;content.value=e.content;grat.value=e.gratitude;content.disabled=grat.disabled=false;paint()}).catch(e=>state.textContent=e.message);
+  loadList();
+  return wrap;
+}
+
+/* ---------- saved ---------- */
+function savedView(){
+  const wrap=el("section",{},el("h1",{},"Saved"));
+  if(!user){wrap.append(el("p",{class:"sub"},"Log in to keep your lists and summaries."),el("button",{class:"btn",onclick:()=>openAuth("Log in to see your saved items.")},"Log in"));return wrap}
+  const list=el("div");wrap.append(el("p",{class:"sub"},"Tap an item to open it."),list);
+  api("/saved").then(rows=>{
+    if(!rows.length)list.append(el("p",{class:"mute"},"Nothing saved yet."));
+    rows.forEach(r=>{
+      const body=(r.kind==="prioritize"?showPriority:showSummary)(r.result);body.hidden=true;
+      const card=el("div",{class:"saved"},el("button",{class:"item",onclick:()=>{body.hidden=!body.hidden}},el("span",{class:"tag"},r.kind),el("span",{},r.title)),body,
+        el("button",{class:"link",onclick:async()=>{await api("/saved/"+r.id,"DELETE");card.remove()}},"Delete"));
+      list.append(card)})}).catch(e=>list.append(el("p",{class:"mute"},e.message)));
+  return wrap;
+}
+
+(async()=>{if(token){try{user=await api("/auth/me")}catch{token=null;store.del("dd_token")}}render()})();
+</script>
+</body>
+</html>
